@@ -7,8 +7,8 @@
 
 int cli()
 {
-	LogParser log_0;
-	char selection = 0;
+	PlayerDB log_0;
+	int selection = 0, type = 0;
 	std::string filename;
 	
 	/*
@@ -25,23 +25,34 @@ int cli()
 	
 	while (std::cin >> selection)
 	{
-		if (selection == '0')
+		if (selection == 0)
 			break;
 
 		switch (selection)
 		{
-		case '1':
+		case 1:
 			std::cout << "Enter file name: ";
 			std::cin >> filename;
 			if (log_0.loadLogOnce(filename) < 0)
 				std::cout << "failed." << std::endl;
 			break;
-		case '2':
+		case 2:
 			log_0.clearLogDB();
 			break;
-		case '3':
+		case 3:
 			if (log_0.simpleLog() < 0)
 				std::cout << "failed." << std::endl;
+			break;
+		case 4:
+			if (log_0.buildPDB() < 0)
+				std::cout << "failed." << std::endl;
+			break;
+		case 5:
+			std::cout << "Type: ";
+			std::cin >> type;
+			if (log_0.simplePlayerReport(type) < 0)
+				std::cout << "failed." << std::endl;
+			std::cout << "Done." << std::endl;
 			break;
 		default:
 			break;

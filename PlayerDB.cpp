@@ -28,7 +28,7 @@ int PlayerDB::readPDB()
 		entry.gamertag.assign(gamertag);
 
 		PDBfile.read((char*)& entry.xuid, sizeof(uint64_t));
-		PDBfile.read((char*)& entry.playcount, sizeof(uint8_t));
+		PDBfile.read((char*)& entry.playcount, sizeof(uint32_t));
 		PDBfile.read((char*)& entry.timeplayed_seconds, sizeof(uint64_t));
 		PDBfile.read((char*)& entry.lastevent, sizeof(uint8_t));
 		PDBfile.read((char*)& entry.lastonline, sizeof(tm));
@@ -54,7 +54,7 @@ int PlayerDB::savePDB()
 	{
 		PDBfile.write((char*)PDB[i].gamertag.c_str(), 15);
 		PDBfile.write((char*)& PDB[i].xuid, sizeof(uint64_t));
-		PDBfile.write((char*)& PDB[i].playcount, sizeof(uint8_t));
+		PDBfile.write((char*)& PDB[i].playcount, sizeof(uint32_t));
 		PDBfile.write((char*)& PDB[i].timeplayed_seconds, sizeof(uint64_t));
 		PDBfile.write((char*)& PDB[i].lastevent, sizeof(uint8_t));
 		PDBfile.write((char*)& PDB[i].lastonline, sizeof(tm));
@@ -72,26 +72,35 @@ int PlayerDB::savePDB()
 int PlayerDB::buildPDB()
 {
 	PDB.clear();
+	return appendPDB(LogDB.begin(), LogDB.end());
+}
+
+int PlayerDB::appendPDB(std::vector<LogDBEntry>::iterator start, std::vector<LogDBEntry>::iterator end)
+{
 	PDBEntry PEntry;
 	time_t time_connect = 0, time_disconnect = 0;
-	for (auto& LDBEntry : LogDB) // iterate in LogDB
+	
+	for (auto LDBEntry = start; LDBEntry != end; LDBEntry++)
 	{
 		// search gamertag in PDB
-		auto index = find_if(PDB.begin(), PDB.end(), [&gamertag = LDBEntry.gamertag](const PDBEntry& currentEntry) { return gamertag == currentEntry.gamertag; });
+		auto index = find_if(PDB.begin(), PDB.end(), [&gamertag = LDBEntry->gamertag](const PDBEntry& currentEntry) { return gamertag == currentEntry.gamertag; });
 
 		if (index == PDB.end()) // player not in PDB
 		{
-			PEntry.gamertag = LDBEntry.gamertag;
-			PEntry.xuid = LDBEntry.xuid;
+			PEntry.gamertag = LDBEntry->gamertag;
+			PEntry.xuid = LDBEntry->xuid;
+			PEntry.playcount = 0;
+			PEntry.timeplayed_seconds = 0;
+			PEntry.lastevent = 1;
 			PDB.push_back(PEntry);
-			index--; // reposition index
+			index = PDB.end() - 1; // reposition index
 		}
 
-		if (LDBEntry.event == 0) // player connect
+		if (LDBEntry->event == 0) // player connect
 		{
 			index->playcount++;
 			index->lastevent = 0; // save last event
-			index->lastonline = LDBEntry.timestamp;
+			index->lastonline = LDBEntry->timestamp;
 		}
 		else
 			if (index->lastevent == 0) // player disconnect
@@ -99,45 +108,80 @@ int PlayerDB::buildPDB()
 				index->lastevent = 1;
 				// calculate time played
 				time_connect = mktime(&index->lastonline);
-				time_disconnect = mktime(&LDBEntry.timestamp);
+				time_disconnect = mktime(&LDBEntry->timestamp);
 				index->timeplayed_seconds += llround(difftime(time_disconnect, time_connect));
 				// update last online time
-				index->lastonline = LDBEntry.timestamp;
+				index->lastonline = LDBEntry->timestamp;
 			}
 			else // player failed to connect
 			{
 				index->lastevent = 1;
-				index->lastonline = LDBEntry.timestamp;
+				index->lastonline = LDBEntry->timestamp;
 			}
 	}
 	
 	return savePDB();
 }
 
-int PlayerDB::appendPDB(std::vector<PDBEntry>::iterator start, std::vector<PDBEntry>::iterator end)
-{
-	for (auto LDBEntry = start; LDBEntry != end; LDBEntry++)
-	{
-		// copy savePDB over would be bad
-	}
-	
-	return -1;
-}
-
 int PlayerDB::clearPDB()
 {
 	PDB.clear();
-	savePDB();
+	return savePDB();
 }
 
 int PlayerDB::simplePlayerReport(uint8_t type)
 {
+	auto PDBsortbygamertag = [](PDBEntry x, PDBEntry y)
+	{
+		std::string a = x.gamertag, b = y.gamertag;
+		std::transform(a.begin(), a.end(), a.begin(), ::toupper);
+		std::transform(b.begin(), b.end(), b.begin(), ::toupper);
+		return a < b;
+	};
+
+	auto PDBsortbytimeplayed = [](PDBEntry x, PDBEntry y)
+	{
+		return x.timeplayed_seconds > y.timeplayed_seconds;
+	};
+
+	auto PDBsortbyplaycount = [](PDBEntry x, PDBEntry y)
+	{
+		return x.playcount > y.playcount;
+	};
+
+	auto PDBsortbylastonline = [](PDBEntry x, PDBEntry y)
+	{
+		return mktime(&x.lastonline) > mktime(&y.lastonline);
+	};
+	
 	std::ofstream simPReport("simPReport.log");
 	if (!simPReport)
 		return -1;
 
+	// copy std::vector
+	std::vector<PDBEntry> sortedPDB(PDB);
+	// sort
+	switch (type)
+	{
+	case 1:
+		sort(sortedPDB.begin(), sortedPDB.end(), PDBsortbygamertag);
+		break;
+	case 2:
+		sort(sortedPDB.begin(), sortedPDB.end(), PDBsortbytimeplayed);
+		break;
+	case 3:
+		sort(sortedPDB.begin(), sortedPDB.end(), PDBsortbyplaycount);
+		break;
+	case 4:
+		sort(sortedPDB.begin(), sortedPDB.end(), PDBsortbylastonline);
+		break;
+	case 0:
+	default:
+		break;
+	}
+
 	simPReport << "Player\txuid\tPlay Count\tTime Played\tLast Online" << std::endl;
-	for (auto& PEntry : PDB)
+	for (auto& PEntry : sortedPDB)
 	{
 		simPReport << PEntry.gamertag << '\t'
 			<< PEntry.xuid << '\t'
@@ -145,11 +189,11 @@ int PlayerDB::simplePlayerReport(uint8_t type)
 			<< PEntry.timeplayed_seconds / 86400 << 'd'
 			<< (PEntry.timeplayed_seconds % 86400) / 3600 << 'h'
 			<< (PEntry.timeplayed_seconds % 86400 % 3600) / 60 << 'm'
-			<< (PEntry.timeplayed_seconds % 86400 % 3600 % 60) / 60 << 's'
-			<< 't'
+			<< PEntry.timeplayed_seconds % 86400 % 3600 % 60 << 's'
+			<< '\t'
 			<< std::put_time(&PEntry.lastonline, "%Y-%m-%d %H:%M:%S") << std::endl;
 	}
 
 	simPReport.close();
-	return -1;
+	return 0;
 }

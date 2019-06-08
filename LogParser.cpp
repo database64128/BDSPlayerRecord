@@ -16,6 +16,7 @@ int LogParser::loadLogOnce(std::string filename)
 {
 	std::string logLine;
 	std::stringstream ss_timestamp;
+	LogDBEntry entry;
 	std::ifstream log(filename);
 	if (!log)
 		return -1;
@@ -88,14 +89,14 @@ int LogParser::simpleLog() // make a simplified log file
 	if (!simLog)
 		return -1;
 
-	for (int i = 0; i < LogDB.size(); i++)
+	for (auto& LDBEntry : LogDB)
 	{
-		simLog << std::put_time(&LogDB[i].timestamp, "%Y-%m-%d %H:%M:%S") << ' '
-			<< LogDB[i].gamertag << ' ';
-		if (LogDB[i].event == 0)
+		simLog << std::put_time(&LDBEntry.timestamp, "%Y-%m-%d %H:%M:%S") << ' '
+			<< LDBEntry.gamertag << ' ';
+		if (LDBEntry.event == 0)
 			simLog << "Joined the game." << std::endl;
 		else
-			if (LogDB[i].event == 1)
+			if (LDBEntry.event == 1)
 				simLog << "Left the game." << std::endl;
 			else
 				simLog << std::endl << "Error: Undefined event" << std::endl;
@@ -122,6 +123,7 @@ int LogParser::readLogDB()
 {
 	std::ifstream LDBfile("LogDB", std::ios::binary);
 	char gamertag[16];
+	LogDBEntry entry;
 
 	if (!LDBfile)
 	{
@@ -154,12 +156,12 @@ int LogParser::saveLogDB()
 	if (!LDBfile)
 		return -1;
 	
-	for (int i = 0; i < LogDB.size(); i++)
+	for (auto& LDBEntry : LogDB)
 	{
-		LDBfile.write((char*)& LogDB[i].timestamp, sizeof(tm));
-		LDBfile.write((char*)LogDB[i].gamertag.c_str(), 15);
-		LDBfile.write((char*)& LogDB[i].xuid, sizeof(uint64_t));
-		LDBfile.write((char*)& LogDB[i].event, sizeof(int8_t));
+		LDBfile.write((char*)& LDBEntry.timestamp, sizeof(tm));
+		LDBfile.write((char*)LDBEntry.gamertag.c_str(), 15);
+		LDBfile.write((char*)& LDBEntry.xuid, sizeof(uint64_t));
+		LDBfile.write((char*)& LDBEntry.event, sizeof(int8_t));
 
 		// consider removing this:
 		if (LDBfile.fail())

@@ -20,7 +20,7 @@ protected:
 		std::string gamertag; // 15
 		uint64_t xuid = 0;
 		int8_t event = -1; // 0 for connect, 1 for disconnect, 2 for clearing connection state, -1 for error
-	} entry;
+	};
 	std::vector<LogDBEntry> LogDB;
 	int readLogDB(); // read from LogDB file to vector
 	int saveLogDB();

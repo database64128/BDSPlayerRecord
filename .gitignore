@@ -3,3 +3,5 @@
 x64
 *.txt
 *.log
+LogDB
+PlayerDB
