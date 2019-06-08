@@ -37,7 +37,7 @@ int cli()
 				std::cout << "failed." << std::endl;
 			break;
 		case '2':
-			log_0.eraseLogDB();
+			log_0.clearLogDB();
 			break;
 		case '3':
 			if (log_0.simpleLog() < 0)

@@ -15,6 +15,7 @@ LogParser::~LogParser()
 int LogParser::loadLogOnce(std::string filename)
 {
 	std::string logLine;
+	std::stringstream ss_timestamp;
 	std::ifstream log(filename);
 	if (!log)
 		return -1;
@@ -28,8 +29,9 @@ int LogParser::loadLogOnce(std::string filename)
 		if (logLine[0] != '[' || logLine[27] != 'P') // no timestamp or not player event
 			continue;
 		// copy timestamp
-		entry.timestamp.assign(logLine, 1, 19);
-		// strncpy(entry.timestamp, logLine.c_str + 1, 19);
+		ss_timestamp.clear();
+		ss_timestamp.str(logLine.substr(1, 19));
+		ss_timestamp >> std::get_time(&entry.timestamp, "%Y-%m-%d %H:%M:%S");
 
 		// detect event type and copy gamertag
 		if (logLine[34] == 'c') // connected
@@ -69,8 +71,7 @@ int LogParser::loadLogOnce(std::string filename)
 	log.clear();
 	log.close();
 
-	// overwrite LogDB
-	overwriteLogDB();
+	saveLogDB();
 	
 	return 0;
 }
@@ -89,7 +90,7 @@ int LogParser::simpleLog() // make a simplified log file
 
 	for (int i = 0; i < LogDB.size(); i++)
 	{
-		simLog << LogDB[i].timestamp << ' '
+		simLog << std::put_time(&LogDB[i].timestamp, "%Y-%m-%d %H:%M:%S") << ' '
 			<< LogDB[i].gamertag << ' ';
 		if (LogDB[i].event == 0)
 			simLog << "Joined the game." << std::endl;
@@ -111,78 +112,61 @@ std::vector<LogParser::LogDBEntry> LogParser::getLogDB()
 	return expLogDB;
 }
 
-void LogParser::eraseLogDB() // erase all data from LogDB
+void LogParser::clearLogDB() // erase all data from LogDB
 {
 	LogDB.clear();
-	overwriteLogDB();
+	saveLogDB();
 }
 
 int LogParser::readLogDB()
 {
-	std::ifstream DBfile("LogDB", std::ios::binary);
-	char timestamp[20];
+	std::ifstream LDBfile("LogDB", std::ios::binary);
 	char gamertag[16];
 
-	if (!DBfile)
+	if (!LDBfile)
 	{
-		return overwriteLogDB();
+		return saveLogDB();
 	}
 
-	while (!DBfile.eof())
+	while (!LDBfile.eof())
 	{
-		DBfile.read((char*)timestamp, 19);
-		DBfile.read((char*)gamertag, 15);
-		timestamp[19] = '\0';
+		LDBfile.read((char*)& entry.timestamp, sizeof(tm));
+		LDBfile.read((char*)gamertag, 15);
 		gamertag[15] = '\0';
-		entry.timestamp.assign(timestamp);
 		entry.gamertag.assign(gamertag);
 
-		DBfile.read((char*)& entry.xuid, sizeof(uint64_t));
-		DBfile.read((char*)& entry.event, sizeof(int8_t));
-		if (DBfile.fail())
+		LDBfile.read((char*)& entry.xuid, sizeof(uint64_t));
+		LDBfile.read((char*)& entry.event, sizeof(int8_t));
+		if (LDBfile.fail())
 			break;
 
 		LogDB.push_back(entry);
 	}
 	
-	DBfile.clear();
-	DBfile.close();
+	LDBfile.clear();
+	LDBfile.close();
 	return 0;
 }
 
-int LogParser::saveLogDB(std::ofstream& DBfile)
+int LogParser::saveLogDB()
 {
+	std::ofstream LDBfile("LogDB", std::ios::binary);
+	if (!LDBfile)
+		return -1;
+	
 	for (int i = 0; i < LogDB.size(); i++)
 	{
-		DBfile.write((char*)LogDB[i].timestamp.c_str(), 19);
-		DBfile.write((char*)LogDB[i].gamertag.c_str(), 15);
-		DBfile.write((char*)& LogDB[i].xuid, sizeof(uint64_t));
-		DBfile.write((char*)& LogDB[i].event, sizeof(int8_t));
+		LDBfile.write((char*)& LogDB[i].timestamp, sizeof(tm));
+		LDBfile.write((char*)LogDB[i].gamertag.c_str(), 15);
+		LDBfile.write((char*)& LogDB[i].xuid, sizeof(uint64_t));
+		LDBfile.write((char*)& LogDB[i].event, sizeof(int8_t));
 
 		// consider removing this:
-		if (DBfile.fail())
+		if (LDBfile.fail())
 			return -1;
 	}
 
-	DBfile.clear();
-	DBfile.close();
+	LDBfile.clear();
+	LDBfile.close();
 	return 0;
-}
-
-int LogParser::appendLogDB()
-{
-	std::ofstream DBfile("LogDB", std::ios::app | std::ios::binary);
-	if (DBfile)
-		return saveLogDB(DBfile);
-	
-	return -1;
-}
-
-int LogParser::overwriteLogDB()
-{
-	std::ofstream DBfile("LogDB", std::ios::binary);
-	if (DBfile)
-		return saveLogDB(DBfile);
-	
-	return -1;
 }
