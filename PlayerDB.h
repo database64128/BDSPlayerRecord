@@ -12,7 +12,7 @@ protected:
 		uint32_t playcount = 0; // add on connecting
 		uint64_t timeplayed_seconds = 0; // add on disconnecting
 		uint8_t lastevent = 1; // 0 for connect, 1 for disconnect
-		tm lastonline; // last time online
+		tm lastonline = { 0 }; // last time online
 	};
 	std::vector<PDBEntry> PDB;
 	std::filesystem::path players = "players/";
@@ -25,5 +25,5 @@ public:
 	int appendPDB(std::vector<LogDBEntry>::iterator start, std::vector<LogDBEntry>::iterator end); // read new LogDB entries and append to PDB
 	int clearPDB(); // clear PDB
 	int simplePlayerReport(uint8_t type); // 0: no sorting, 1: sort by gamertag, 2: sort by time played, 3: sort by play count, 4: sort by last online
+	int exportCSV_PDB();
 };
-

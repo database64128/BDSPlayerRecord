@@ -1,8 +1,7 @@
-// cli.cpp: temporary Command line interface
+// cli.cpp: temporary Command Line Interface
 
 #include <iostream>
 
-#include "LogParser.h"
 #include "PlayerDB.h"
 
 int cli()
@@ -21,6 +20,8 @@ int cli()
 		<< "3. make a simplified log" << std::endl
 		<< "4. make PlayerDB" << std::endl
 		<< "5. make a simple player log" << std::endl
+		<< "6. export LogDB CSV" << std::endl
+		<< "7. export PDB CSV" << std::endl
 		<< "0. Exit" << std::endl;
 	
 	while (std::cin >> selection)
@@ -54,11 +55,18 @@ int cli()
 				std::cout << "failed." << std::endl;
 			std::cout << "Done." << std::endl;
 			break;
+		case 6:
+			if (log_0.exportCSV_LogDB() < 0)
+				std::cout << "failed." << std::endl;
+			break;
+		case 7:
+			if (log_0.exportCSV_PDB() < 0)
+				std::cout << "failed." << std::endl;
+			break;
 		default:
 			break;
 		}
 	}
 	
-
 	return 0;
 }

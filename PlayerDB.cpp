@@ -1,3 +1,9 @@
+// PlayerDB.cpp: PlayerDB class manages PlayerDB
+
+#if _MSC_VER
+#pragma warning(disable:4996) // MSVC++ _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "PlayerDB.h"
 
 PlayerDB::PlayerDB()
@@ -180,10 +186,11 @@ int PlayerDB::simplePlayerReport(uint8_t type)
 		break;
 	}
 
-	simPReport << "Player\txuid\tPlay Count\tTime Played\tLast Online" << std::endl;
+	simPReport << "Player\txuid\tNumber of Login\tTime Played\tLast Online" << std::endl;
 	for (auto& PEntry : sortedPDB)
 	{
-		simPReport << PEntry.gamertag << '\t'
+		simPReport
+			<< PEntry.gamertag << '\t'
 			<< PEntry.xuid << '\t'
 			<< PEntry.playcount << '\t'
 			<< PEntry.timeplayed_seconds / 86400 << 'd'
@@ -195,5 +202,42 @@ int PlayerDB::simplePlayerReport(uint8_t type)
 	}
 
 	simPReport.close();
+	return 0;
+}
+
+int PlayerDB::exportCSV_PDB()
+{
+	std::string filename_CSV = "PDB_";
+	// get date time
+	auto time = std::time(nullptr);
+	std::ostringstream oss;
+	oss << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
+	// append date time to filename
+	filename_CSV.append(oss.str());
+	// append extension .csv
+	filename_CSV.append(".csv");
+
+	std::ofstream CSV_PDB(filename_CSV);
+	if (!CSV_PDB)
+		return -1;
+
+	CSV_PDB << "Player,xuid,Number of Login,Time Played,Last Online" << std::endl;
+
+	for (auto& PEntry : PDB)
+	{
+		CSV_PDB
+			<< PEntry.gamertag << ','
+			<< PEntry.xuid << ','
+			<< PEntry.playcount << ','
+			<< PEntry.timeplayed_seconds / 86400 << 'd'
+			<< (PEntry.timeplayed_seconds % 86400) / 3600 << 'h'
+			<< (PEntry.timeplayed_seconds % 86400 % 3600) / 60 << 'm'
+			<< PEntry.timeplayed_seconds % 86400 % 3600 % 60 << 's'
+			<< ','
+			<< std::put_time(&PEntry.lastonline, "%Y-%m-%d %H:%M:%S") << std::endl;
+	}
+
+	CSV_PDB.clear();
+	CSV_PDB.close();
 	return 0;
 }

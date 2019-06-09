@@ -1,5 +1,9 @@
 // LogParser.cpp: LogParser class loads log into LogDB.
 
+#if _MSC_VER
+#pragma warning(disable:4996) // MSVC++ _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "LogParser.h"
 
 LogParser::LogParser()
@@ -10,6 +14,60 @@ LogParser::LogParser()
 LogParser::~LogParser()
 {
 
+}
+
+int LogParser::readLogDB()
+{
+	std::ifstream LDBfile("LogDB", std::ios::binary);
+	char gamertag[16];
+	LogDBEntry entry;
+
+	if (!LDBfile)
+	{
+		return saveLogDB();
+	}
+
+	while (!LDBfile.eof())
+	{
+		LDBfile.read((char*)& entry.timestamp, sizeof(tm));
+		LDBfile.read((char*)gamertag, 15);
+		gamertag[15] = '\0';
+		entry.gamertag.assign(gamertag);
+
+		LDBfile.read((char*)& entry.xuid, sizeof(uint64_t));
+		LDBfile.read((char*)& entry.event, sizeof(int8_t));
+		if (LDBfile.fail())
+			break;
+
+		LogDB.push_back(entry);
+	}
+
+	LDBfile.clear();
+	LDBfile.close();
+	return 0;
+}
+
+int LogParser::saveLogDB()
+{
+	std::ofstream LDBfile("LogDB", std::ios::binary);
+	if (!LDBfile)
+		return -1;
+
+	for (auto& LDBEntry : LogDB)
+	{
+		LDBfile.write((char*)& LDBEntry.timestamp, sizeof(tm));
+		LDBfile.write((char*)LDBEntry.gamertag.c_str(), 15);
+		LDBfile.write((char*)& LDBEntry.xuid, sizeof(uint64_t));
+		LDBfile.write((char*)& LDBEntry.event, sizeof(int8_t));
+
+		// consider removing this:
+		if (LDBfile.fail())
+			return -1;
+	}
+
+	LDBfile.clear();
+	LDBfile.close();
+	return 0;
 }
 
 int LogParser::loadLogOnce(std::string filename)
@@ -83,6 +141,12 @@ int LogParser::loadLog()
 	return -1;
 }
 
+int LogParser::clearLogDB() // erase all data from LogDB
+{
+	LogDB.clear();
+	return saveLogDB();
+}
+
 int LogParser::simpleLog() // make a simplified log file
 {
 	std::ofstream simLog("simlog.log");
@@ -91,7 +155,8 @@ int LogParser::simpleLog() // make a simplified log file
 
 	for (auto& LDBEntry : LogDB)
 	{
-		simLog << std::put_time(&LDBEntry.timestamp, "%Y-%m-%d %H:%M:%S") << ' '
+		simLog
+			<< std::put_time(&LDBEntry.timestamp, "%Y-%m-%d %H:%M:%S") << ' '
 			<< LDBEntry.gamertag << ' ';
 		if (LDBEntry.event == 0)
 			simLog << "Joined the game." << std::endl;
@@ -106,69 +171,44 @@ int LogParser::simpleLog() // make a simplified log file
 	return 0;
 }
 
-std::vector<LogParser::LogDBEntry> LogParser::getLogDB()
+int LogParser::exportCSV_LogDB()
 {
-	// copy the vector for exporting
-	std::vector<LogParser::LogDBEntry> expLogDB(LogDB.begin(), LogDB.end());
-	return expLogDB;
-}
+	std::string filename_CSV = "LogDB_";
+	// get date time
+	auto time = std::time(nullptr);
+	std::ostringstream oss;
+	oss << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
+	// append date time to filename
+	filename_CSV.append(oss.str());
+	// append extension .csv
+	filename_CSV.append(".csv");
 
-void LogParser::clearLogDB() // erase all data from LogDB
-{
-	LogDB.clear();
-	saveLogDB();
-}
-
-int LogParser::readLogDB()
-{
-	std::ifstream LDBfile("LogDB", std::ios::binary);
-	char gamertag[16];
-	LogDBEntry entry;
-
-	if (!LDBfile)
-	{
-		return saveLogDB();
-	}
-
-	while (!LDBfile.eof())
-	{
-		LDBfile.read((char*)& entry.timestamp, sizeof(tm));
-		LDBfile.read((char*)gamertag, 15);
-		gamertag[15] = '\0';
-		entry.gamertag.assign(gamertag);
-
-		LDBfile.read((char*)& entry.xuid, sizeof(uint64_t));
-		LDBfile.read((char*)& entry.event, sizeof(int8_t));
-		if (LDBfile.fail())
-			break;
-
-		LogDB.push_back(entry);
-	}
-	
-	LDBfile.clear();
-	LDBfile.close();
-	return 0;
-}
-
-int LogParser::saveLogDB()
-{
-	std::ofstream LDBfile("LogDB", std::ios::binary);
-	if (!LDBfile)
+	std::ofstream CSV_LogDB(filename_CSV);
+	if (!CSV_LogDB)
 		return -1;
-	
+
+	CSV_LogDB << "Time,Player,xuid,event" << std::endl;
+
 	for (auto& LDBEntry : LogDB)
 	{
-		LDBfile.write((char*)& LDBEntry.timestamp, sizeof(tm));
-		LDBfile.write((char*)LDBEntry.gamertag.c_str(), 15);
-		LDBfile.write((char*)& LDBEntry.xuid, sizeof(uint64_t));
-		LDBfile.write((char*)& LDBEntry.event, sizeof(int8_t));
-
-		// consider removing this:
-		if (LDBfile.fail())
-			return -1;
+		CSV_LogDB
+			<< std::put_time(&LDBEntry.timestamp, "%Y-%m-%d %H:%M:%S") << ','
+			<< LDBEntry.gamertag << ','
+			<< LDBEntry.xuid << ',';
+		switch (LDBEntry.event)
+		{
+		case 0:
+			CSV_LogDB << "connected" << std::endl;
+			break;
+		case 1:
+			CSV_LogDB << "disconnected" << std::endl;
+			break;
+		default:
+			break;
+		}
 	}
 
-	LDBfile.clear();
-	LDBfile.close();
+	CSV_LogDB.clear();
+	CSV_LogDB.close();
 	return 0;
 }
