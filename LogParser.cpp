@@ -1,7 +1,7 @@
 // LogParser.cpp: LogParser class loads log into LogDB.
 
 #if _MSC_VER
-#pragma warning(disable:4996) // MSVC++ _CRT_SECURE_NO_WARNINGS
+#pragma warning(disable:4996) // MSVC _CRT_SECURE_NO_WARNINGS
 #endif
 
 #include "LogParser.h"
@@ -178,6 +178,11 @@ int LogParser::exportCSV_LogDB()
 	auto time = std::time(nullptr);
 	std::ostringstream oss;
 	oss << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
+
+	// TO-DO: Use std::chrono::to_stream in C++20 to replace unsafe std::localtime
+	// See https://en.cppreference.com/w/cpp/chrono/system_clock/to_stream
+	// Currently not supported by MSVC
+
 	// append date time to filename
 	filename_CSV.append(oss.str());
 	// append extension .csv

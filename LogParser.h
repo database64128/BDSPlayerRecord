@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <algorithm>
+#include <chrono>
 
 class LogParser
 {
