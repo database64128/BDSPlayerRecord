@@ -13,7 +13,7 @@ PlayerDB::PlayerDB()
 
 PlayerDB::~PlayerDB()
 {
-	
+
 }
 
 int PlayerDB::readPDB()
@@ -85,7 +85,7 @@ int PlayerDB::appendPDB(std::vector<LogDBEntry>::iterator start, std::vector<Log
 {
 	PDBEntry PEntry;
 	time_t time_connect = 0, time_disconnect = 0;
-	
+
 	for (auto LDBEntry = start; LDBEntry != end; LDBEntry++)
 	{
 		// search gamertag in PDB
@@ -125,7 +125,7 @@ int PlayerDB::appendPDB(std::vector<LogDBEntry>::iterator start, std::vector<Log
 				index->lastonline = LDBEntry->timestamp;
 			}
 	}
-	
+
 	return savePDB();
 }
 
@@ -135,8 +135,81 @@ int PlayerDB::clearPDB()
 	return savePDB();
 }
 
-int PlayerDB::simplePlayerReport(uint8_t type)
+int PlayerDB::simplePlayerReport(int sortBy) // sortBy defaults to 1
 {
+	std::ofstream simPReport("simPReport.log");
+	if (!simPReport)
+		return -1;
+
+	auto sortedPDB = copySortPDB(sortBy);
+
+	simPReport << "Player\txuid\tNumber of Login\tTime Played\tLast Online" << std::endl;
+	for (auto& PEntry : sortedPDB)
+	{
+		simPReport
+			<< PEntry.gamertag << '\t'
+			<< PEntry.xuid << '\t'
+			<< PEntry.playcount << '\t'
+			<< PEntry.timeplayed_seconds / 86400 << 'd'
+			<< (PEntry.timeplayed_seconds % 86400) / 3600 << 'h'
+			<< (PEntry.timeplayed_seconds % 86400 % 3600) / 60 << 'm'
+			<< PEntry.timeplayed_seconds % 86400 % 3600 % 60 << 's'
+			<< '\t'
+			<< std::put_time(&PEntry.lastonline, "%Y-%m-%d %H:%M:%S") << std::endl;
+	}
+
+	simPReport.close();
+	return 0;
+}
+
+int PlayerDB::exportCSV_PDB(int sortBy) // sortBy defaults to 1
+{
+	std::string filename_CSV = "PDB_";
+	// get date time
+	auto time = std::time(nullptr);
+	std::ostringstream oss;
+	oss << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
+
+	// TO-DO: Use std::chrono::to_stream in C++20 to replace unsafe std::localtime
+	// See https://en.cppreference.com/w/cpp/chrono/system_clock/to_stream
+	// Currently not supported by MSVC
+
+	// append date time to filename
+	filename_CSV.append(oss.str());
+	// append extension .csv
+	filename_CSV.append(".csv");
+
+	std::ofstream CSV_PDB(filename_CSV);
+	if (!CSV_PDB)
+		return -1;
+
+	auto sortedPDB = copySortPDB(sortBy);
+
+	CSV_PDB << "Player,xuid,Number of Login,Time Played,Last Online" << std::endl;
+
+	for (auto& PEntry : sortedPDB)
+	{
+		CSV_PDB
+			<< PEntry.gamertag << ','
+			<< PEntry.xuid << ','
+			<< PEntry.playcount << ','
+			<< PEntry.timeplayed_seconds / 86400 << 'd'
+			<< (PEntry.timeplayed_seconds % 86400) / 3600 << 'h'
+			<< (PEntry.timeplayed_seconds % 86400 % 3600) / 60 << 'm'
+			<< PEntry.timeplayed_seconds % 86400 % 3600 % 60 << 's'
+			<< ','
+			<< std::put_time(&PEntry.lastonline, "%Y-%m-%d %H:%M:%S") << std::endl;
+	}
+
+	CSV_PDB.clear();
+	CSV_PDB.close();
+	return 0;
+}
+
+std::vector<PlayerDB::PDBEntry> PlayerDB::copySortPDB(int sortBy) // sortBy defaults to 1
+{
+	// binary comparison functions
+
 	auto PDBsortbygamertag = [](PDBEntry x, PDBEntry y)
 	{
 		std::string a = x.gamertag, b = y.gamertag;
@@ -159,15 +232,12 @@ int PlayerDB::simplePlayerReport(uint8_t type)
 	{
 		return mktime(&x.lastonline) > mktime(&y.lastonline);
 	};
-	
-	std::ofstream simPReport("simPReport.log");
-	if (!simPReport)
-		return -1;
 
-	// copy std::vector
-	std::vector<PDBEntry> sortedPDB(PDB);
+	// copy PDB
+	auto sortedPDB(PDB);
+
 	// sort
-	switch (type)
+	switch (sortBy)
 	{
 	case 1:
 		sort(sortedPDB.begin(), sortedPDB.end(), PDBsortbygamertag);
@@ -186,63 +256,5 @@ int PlayerDB::simplePlayerReport(uint8_t type)
 		break;
 	}
 
-	simPReport << "Player\txuid\tNumber of Login\tTime Played\tLast Online" << std::endl;
-	for (auto& PEntry : sortedPDB)
-	{
-		simPReport
-			<< PEntry.gamertag << '\t'
-			<< PEntry.xuid << '\t'
-			<< PEntry.playcount << '\t'
-			<< PEntry.timeplayed_seconds / 86400 << 'd'
-			<< (PEntry.timeplayed_seconds % 86400) / 3600 << 'h'
-			<< (PEntry.timeplayed_seconds % 86400 % 3600) / 60 << 'm'
-			<< PEntry.timeplayed_seconds % 86400 % 3600 % 60 << 's'
-			<< '\t'
-			<< std::put_time(&PEntry.lastonline, "%Y-%m-%d %H:%M:%S") << std::endl;
-	}
-
-	simPReport.close();
-	return 0;
-}
-
-int PlayerDB::exportCSV_PDB()
-{
-	std::string filename_CSV = "PDB_";
-	// get date time
-	auto time = std::time(nullptr);
-	std::ostringstream oss;
-	oss << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
-
-	// TO-DO: Use std::chrono::to_stream in C++20 to replace unsafe std::localtime
-	// See https://en.cppreference.com/w/cpp/chrono/system_clock/to_stream
-	// Currently not supported by MSVC
-
-	// append date time to filename
-	filename_CSV.append(oss.str());
-	// append extension .csv
-	filename_CSV.append(".csv");
-
-	std::ofstream CSV_PDB(filename_CSV);
-	if (!CSV_PDB)
-		return -1;
-
-	CSV_PDB << "Player,xuid,Number of Login,Time Played,Last Online" << std::endl;
-
-	for (auto& PEntry : PDB)
-	{
-		CSV_PDB
-			<< PEntry.gamertag << ','
-			<< PEntry.xuid << ','
-			<< PEntry.playcount << ','
-			<< PEntry.timeplayed_seconds / 86400 << 'd'
-			<< (PEntry.timeplayed_seconds % 86400) / 3600 << 'h'
-			<< (PEntry.timeplayed_seconds % 86400 % 3600) / 60 << 'm'
-			<< PEntry.timeplayed_seconds % 86400 % 3600 % 60 << 's'
-			<< ','
-			<< std::put_time(&PEntry.lastonline, "%Y-%m-%d %H:%M:%S") << std::endl;
-	}
-
-	CSV_PDB.clear();
-	CSV_PDB.close();
-	return 0;
+	return sortedPDB;
 }

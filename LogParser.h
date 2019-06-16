@@ -24,14 +24,16 @@ protected:
 	std::filesystem::path logs = "logs/";
 	int readLogDB(); // read from LogDB file to vector
 	int saveLogDB();
+
+	// Note that copySortLogDB() is implemented but currently not used anywhere!
+	// TO-DO: sort LogDB after appending
+	std::vector<LogDBEntry> copySortLogDB(int sortBy = 1); // copy and sort LogDB, 0: no sorting, 1: by timestamp, 2: by gamertag, 3: by event
 public:
 	LogParser();
 	~LogParser();
 
-	// consider rename for parity:
-	int loadLogOnce(std::string filename);
-	int loadLog();
-
+	int appendLogDB(std::string filename); // append from log file
+	int appendLogDB(); // append from log directory
 	int clearLogDB(); // erase all data from LogDB
 	int simpleLog(); // make a simplified log file
 	int exportCSV_LogDB();

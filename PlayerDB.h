@@ -18,12 +18,13 @@ protected:
 	std::filesystem::path players = "players/";
 	int readPDB();
 	int savePDB();
+	std::vector<PDBEntry> copySortPDB(int sortBy = 1); // copy and sort PDB, 0: no sorting, 1: by gamertag, 2: by time played, 3: by play count, 4: by last online
 public:
 	PlayerDB();
 	~PlayerDB();
-	int buildPDB(); // clear and build PDB from the ground up
-	int appendPDB(std::vector<LogDBEntry>::iterator start, std::vector<LogDBEntry>::iterator end); // read new LogDB entries and append to PDB
+	int buildPDB(); // clear and build PDB from *all entries* of LogDB
+	int appendPDB(std::vector<LogDBEntry>::iterator start, std::vector<LogDBEntry>::iterator end); // select LogDB entries to append to PlayerDB
 	int clearPDB(); // clear PDB
-	int simplePlayerReport(uint8_t type); // 0: no sorting, 1: sort by gamertag, 2: sort by time played, 3: sort by play count, 4: sort by last online
-	int exportCSV_PDB();
+	int simplePlayerReport(int sortBy = 1);
+	int exportCSV_PDB(int sortBy = 1);
 };

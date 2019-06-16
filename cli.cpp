@@ -1,4 +1,4 @@
-// cli.cpp: temporary Command Line Interface
+// cli.cpp: legacy Command Line Interface, for debug only
 
 #include <iostream>
 
@@ -15,11 +15,11 @@ int cli()
 		std::cerr << "failed" << std::endl;
 	*/
 	std::cout
-		<< "1. load log once" << std::endl
-		<< "2. erase LogDB" << std::endl
+		<< "1. append LogDB" << std::endl
+		<< "2. clear LogDB" << std::endl
 		<< "3. make a simplified log" << std::endl
-		<< "4. make PlayerDB" << std::endl
-		<< "5. make a simple player log" << std::endl
+		<< "4. build PlayerDB" << std::endl
+		<< "5. make a simple player record" << std::endl
 		<< "6. export LogDB CSV" << std::endl
 		<< "7. export PDB CSV" << std::endl
 		<< "0. Exit" << std::endl;
@@ -34,7 +34,7 @@ int cli()
 		case 1:
 			std::cout << "Enter file name: ";
 			std::cin >> filename;
-			if (log_0.loadLogOnce(filename) < 0)
+			if (log_0.appendLogDB(filename) < 0)
 				std::cout << "failed." << std::endl;
 			break;
 		case 2:

@@ -70,7 +70,7 @@ int LogParser::saveLogDB()
 	return 0;
 }
 
-int LogParser::loadLogOnce(std::string filename)
+int LogParser::appendLogDB(std::string filename)
 {
 	std::string logLine;
 	std::stringstream ss_timestamp;
@@ -82,46 +82,53 @@ int LogParser::loadLogOnce(std::string filename)
 	log.seekg(0, std::ios::beg);
 	while (!log.eof())
 	{
-		// read a line each time
-		getline(log, logLine);
-		// skip useless lines
-		if (logLine[0] != '[' || logLine[27] != 'P') // no timestamp or not player event
-			continue;
-		// copy timestamp
-		ss_timestamp.clear();
-		ss_timestamp.str(logLine.substr(1, 19));
-		ss_timestamp >> std::get_time(&entry.timestamp, "%Y-%m-%d %H:%M:%S");
-
-		// detect event type and copy gamertag
-		if (logLine[34] == 'c') // connected
+		try
 		{
-			entry.event = 0;
-			entry.gamertag = logLine.substr(45, 15);
-		}
-		else
-			if (logLine[34] == 'd') // disconnected
+			// read a line each time
+			getline(log, logLine);
+			// skip useless lines
+			if (logLine[0] != '[' || logLine[27] != 'P') // no timestamp or not player event
+				continue;
+			// copy timestamp
+			ss_timestamp.clear();
+			ss_timestamp.str(logLine.substr(1, 19));
+			ss_timestamp >> std::get_time(&entry.timestamp, "%Y-%m-%d %H:%M:%S");
+
+			// detect event type and copy gamertag
+			if (logLine[34] == 'c') // connected
 			{
-				entry.event = 1;
-				entry.gamertag = logLine.substr(48, 15);
+				entry.event = 0;
+				entry.gamertag = logLine.substr(45, 15);
 			}
 			else
+				if (logLine[34] == 'd') // disconnected
+				{
+					entry.event = 1;
+					entry.gamertag = logLine.substr(48, 15);
+				}
+				else
+				{
+					entry.event = -1; // error
+					return -1;
+				}
+			// trim gamertag
+			for (int i = 14; i >= 0; i--)
 			{
-				entry.event = -1; // error
-				return -1;
+				if (entry.gamertag[i] == ',')
+				{
+					entry.gamertag.erase(entry.gamertag.begin() + i, entry.gamertag.end());
+					break;
+				}
 			}
-		// trim gamertag
-		for (int i = 14; i >= 0; i--)
-		{
-			if (entry.gamertag[i] == ',')
-			{
-				entry.gamertag.erase(entry.gamertag.begin() + i, entry.gamertag.end());
-				break;
-			}
-		}
-		// strncpy(entry.gamertag, gamertag.c_str, gamertag.length());
 
-		// copy xuid
-		entry.xuid = stoull(logLine.substr(45 + (int64_t)entry.event * 3 + entry.gamertag.length() + 8));
+			// copy xuid
+			entry.xuid = stoull(logLine.substr(45 + (int64_t)entry.event * 3 + entry.gamertag.length() + 8));
+		}
+		catch (...)
+		{
+			// should we log exceptions?
+			continue;
+		}
 
 		// push back entry to vector
 		LogDB.push_back(entry);
@@ -131,11 +138,11 @@ int LogParser::loadLogOnce(std::string filename)
 	log.close();
 
 	saveLogDB();
-	
+
 	return 0;
 }
 
-int LogParser::loadLog()
+int LogParser::appendLogDB()
 {
 	// to be added after 1.12
 	return -1;
@@ -179,7 +186,7 @@ int LogParser::exportCSV_LogDB()
 	std::ostringstream oss;
 	oss << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
 
-	// TO-DO: Use std::chrono::to_stream in C++20 to replace unsafe std::localtime
+	// TO-DO: Use std::chrono::to_stream in C++ 20 to replace unsafe std::localtime
 	// See https://en.cppreference.com/w/cpp/chrono/system_clock/to_stream
 	// Currently not supported by MSVC
 
@@ -216,4 +223,48 @@ int LogParser::exportCSV_LogDB()
 	CSV_LogDB.clear();
 	CSV_LogDB.close();
 	return 0;
+}
+
+std::vector<LogParser::LogDBEntry> LogParser::copySortLogDB(int sortBy) // sortBy defaults to 1
+{
+	// binary comparison functions
+	
+	auto LogDBsortbytimestamp = [](LogDBEntry x, LogDBEntry y)
+	{
+		return mktime(&x.timestamp) < mktime(&y.timestamp);
+	};
+	
+	auto LogDBsortbygamertag = [](LogDBEntry x, LogDBEntry y)
+	{
+		std::string a = x.gamertag, b = y.gamertag;
+		std::transform(a.begin(), a.end(), a.begin(), ::toupper);
+		std::transform(b.begin(), b.end(), b.begin(), ::toupper);
+		return a < b;
+	};
+
+	auto LogDBsortbyevent = [](LogDBEntry x, LogDBEntry y)
+	{
+		return x.event < y.event;
+	};
+
+	auto sortedLogDB(LogDB);
+
+	// sort
+	switch (sortBy)
+	{
+	case 1:
+		sort(sortedLogDB.begin(), sortedLogDB.end(), LogDBsortbytimestamp);
+		break;
+	case 2:
+		sort(sortedLogDB.begin(), sortedLogDB.end(), LogDBsortbygamertag);
+		break;
+	case 3:
+		sort(sortedLogDB.begin(), sortedLogDB.end(), LogDBsortbyevent);
+		break;
+	case 0:
+	default:
+		break;
+	}
+
+	return sortedLogDB;
 }
